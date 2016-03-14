@@ -1,74 +1,68 @@
 import Foundation
 
 public class MigrationEventHandler {
-    private var listenerDelegates = [MigrationProgessListenerDelegate]()
-    private let queue = MigrationEventOperationQueue()
-    public var migrationState = MigrationProgressState()
+    public var migrationState: MigrationEventData
 
-    public init() {
+    private var observers = [MigrationProgessObserver]()
 
+    public init(state: MigrationEventData) {
+        self.migrationState = state
     }
 
-    public func addEvent(event: MigrationEvent) {
-        let operation = MigrationEventOperation(migrationEvent: event, eventHandler: self)
-        queue.addOperation(operation)
+    public func handleEvent(event: MigrationEvent) {
+
+        // TODO: Implement
+        // Correct handling of specific events
+
+        processBlockOnEventQueue {
+
+            // This sleep just simulates a non-instant processing time
+            let randomTime = UInt32(rand() % 200000)
+            usleep(randomTime)
+
+            switch event {
+            case .ProcessingStarted():
+                self.migrationState.recordMigrationStart()
+                break
+            case .ProcessingEnded():
+                self.migrationState.recordMigrationEnd()
+                break
+            case .ItemProcessingStarted(let migrationItem):
+                self.migrationState.recordMigrationItemStart(migrationItem)
+                break
+            case .ItemProcessingEnded(let migrationItem):
+                self.migrationState.recordMigrationItemEnd(migrationItem)
+                break
+            case .RecordProcessed():
+                self.migrationState.recordMigrationItemRecord()
+                break
+            }
+            
+            self.notifyDelegates()
+        }
     }
 
-    public func registerListener(listener: MigrationProgessListenerDelegate) {
-        listenerDelegates.append(listener)
+    public func registerListener(observer: MigrationProgessObserver) {
+        observers.append(observer)
     }
 
     private func notifyDelegates() {
-        for listener in listenerDelegates {
-            listener.onProgressUpdated()
+        for observer in observers {
+            observer.onProgressUpdated()
         }
     }
 
-    // MARK: Private Structures
+    lazy var eventQueue: dispatch_queue_t = {
+        let queue = dispatch_queue_create("com.shopkeep.migrationevents", DISPATCH_QUEUE_SERIAL)
+        dispatch_set_target_queue(queue, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0))
+        return queue
+    }()
 
-    private class MigrationEventOperationQueue : NSOperationQueue {
-        override init() {
-            super.init()
-            self.name = "JobWorkerQueue"
-            self.qualityOfService = .Background
-            self.maxConcurrentOperationCount = 1
-        }
+    private func processBlockOnEventQueue(block: () -> Void) {
+        dispatch_async(eventQueue, block)
     }
+}
 
-    private class MigrationEventOperation : NSOperation {
-        let migrationEvent: MigrationEvent
-        let eventHandler: MigrationEventHandler
-
-        override var asynchronous: Bool {
-            return true
-        }
-
-        init(migrationEvent: MigrationEvent, eventHandler: MigrationEventHandler) {
-            self.migrationEvent = migrationEvent
-            self.eventHandler = eventHandler
-        }
-
-        override func main() {
-
-            // TODO: Implement
-            // Correct handling of specific events
-
-            switch migrationEvent {
-            case .Started(_, _):
-                eventHandler.migrationState.update()
-                break
-            case .Ended(_):
-                eventHandler.migrationState.update()
-                break
-            case .ItemStarted(_, _, _):
-                eventHandler.migrationState.update()
-                break
-            case .ItemEnded(_):
-                eventHandler.migrationState.update()
-                break
-            }
-
-            eventHandler.notifyDelegates()
-        }
-    }
+public protocol MigrationProgessObserver {
+    func onProgressUpdated()
 }
