@@ -8,9 +8,7 @@ let migrationController = MigrationViewController()
 XCPlaygroundPage.currentPage.liveView = migrationController.view
 
 let migrationSystem = MockMigrationSystem()
-let state = MigrationEventData(fromVersion: "2.7.0", toVersion: "2.8.0", totalMineCartItems: UInt(migrationSystem.migrations.count))
-let eventHandler = MigrationEventHandler(state: state)
-eventHandler.registerListener(migrationController)
+let eventHandler = MigrationEventHandler(observers: [migrationController])
 
 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0)) {
     migrationSystem.processMigrations(eventHandler)
@@ -72,7 +70,7 @@ class MockMigrationSystem {
     */
     func processMigrations(handler: MigrationEventHandler) {
 
-        let startEvent = MigrationEvent.ProcessingStarted()
+        let startEvent = MigrationEvent.ProcessingStarted(previousVerion: "2.7.2", currentVersion: "2.7.8", itemCount: UInt(migrations.count))
         handler.handleEvent(startEvent)
 
         for migration in migrations {
@@ -124,10 +122,12 @@ class MigrationViewController: UIViewController, MigrationProgessObserver {
 
         // The MigrationProgessListenerDelegate will responsible for updating itself
         dispatch_async(dispatch_get_main_queue()) {
-            if let name = eventHandler.migrationState.mineCartItemName {
-                self.versionLabel.text = "Migrating from version \(eventHandler.migrationState.previousAppVersion) to \(eventHandler.migrationState.currentAppVersion)"
-                self.itemLabel.text = "Running migration \(name) (\(eventHandler.migrationState.completedMineCartItems) of \(eventHandler.migrationState.totalMineCartItems))"
-                self.countLabel.text = "Migrating records \(eventHandler.migrationState.completedMineCartItemRecords) to \(eventHandler.migrationState.totalMineCartItemRecords)"
+            if let name = eventHandler.migrationData.mineCartItemName,
+                let previousVersion = eventHandler.migrationData.previousAppVersion,
+                let currentVersion = eventHandler.migrationData.currentAppVersion {
+                self.versionLabel.text = "Migrating from version \(previousVersion) to \(currentVersion)"
+                self.itemLabel.text = "Running migration \(name) (\(eventHandler.migrationData.currentMineCartItem) of \(eventHandler.migrationData.totalMineCartItems))"
+                self.countLabel.text = "Migrating records \(eventHandler.migrationData.completedMineCartItemRecords) to \(eventHandler.migrationData.totalMineCartItemRecords)"
             }
         }
     }

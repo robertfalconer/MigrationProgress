@@ -13,8 +13,8 @@ public struct MigrationItem {
 }
 
 public struct MigrationEventData {
-    public let previousAppVersion: String
-    public let currentAppVersion: String
+    public private(set) var previousAppVersion: String?
+    public private(set) var currentAppVersion: String?
 
     public private(set) var mineCartStartTime: NSDate?
     public private(set) var mineCartEndTime: NSDate?
@@ -29,13 +29,19 @@ public struct MigrationEventData {
     public private(set) var totalMineCartItemRecords: UInt = 0
     public private(set) var completedMineCartItemRecords: UInt = 0
 
-    public init(fromVersion previousAppVersion: String, toVersion currentAppVersion: String, totalMineCartItems: UInt) {
+    public var currentMineCartItem: UInt {
+        if completedMineCartItems == totalMineCartItems {
+            return completedMineCartItems
+        }
+
+        return completedMineCartItems + 1
+    }
+
+    public mutating func recordMigrationStart(fromVersion previousAppVersion: String, toVersion currentAppVersion: String, totalMineCartItems: UInt) {
         self.previousAppVersion = previousAppVersion
         self.currentAppVersion = currentAppVersion
         self.totalMineCartItems = totalMineCartItems
-    }
 
-    public mutating func recordMigrationStart() {
         completedMineCartItems = 0
         completedMineCartItemRecords = 0
 
@@ -64,7 +70,7 @@ public struct MigrationEventData {
         mineCartItemDescription = migrationItem.description
     }
 
-    public mutating func recordMigrationItemRecord() {
+    public mutating func recordMigrationItemRecordProcessed() {
         //  Counts
         completedMineCartItemRecords += 1
     }

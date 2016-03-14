@@ -1,12 +1,12 @@
 import Foundation
 
 public class MigrationEventHandler {
-    public var migrationState: MigrationEventData
+    public var migrationData = MigrationEventData()
 
-    private var observers = [MigrationProgessObserver]()
+    private let observers: [MigrationProgessObserver]
 
-    public init(state: MigrationEventData) {
-        self.migrationState = state
+    public init(observers: [MigrationProgessObserver]) {
+        self.observers = observers
     }
 
     public func handleEvent(event: MigrationEvent) {
@@ -21,32 +21,28 @@ public class MigrationEventHandler {
             usleep(randomTime)
 
             switch event {
-            case .ProcessingStarted():
-                self.migrationState.recordMigrationStart()
+            case .ProcessingStarted(let previousVersion, let currentVersion, let itemCount):
+                self.migrationData.recordMigrationStart(fromVersion: previousVersion, toVersion: currentVersion, totalMineCartItems: itemCount)
                 break
             case .ProcessingEnded():
-                self.migrationState.recordMigrationEnd()
+                self.migrationData.recordMigrationEnd()
                 break
-            case .ItemProcessingStarted(let migrationItem):
-                self.migrationState.recordMigrationItemStart(migrationItem)
+            case .ItemProcessingStarted(let item):
+                self.migrationData.recordMigrationItemStart(item)
                 break
-            case .ItemProcessingEnded(let migrationItem):
-                self.migrationState.recordMigrationItemEnd(migrationItem)
+            case .ItemProcessingEnded(let item):
+                self.migrationData.recordMigrationItemEnd(item)
                 break
             case .RecordProcessed():
-                self.migrationState.recordMigrationItemRecord()
+                self.migrationData.recordMigrationItemRecordProcessed()
                 break
             }
-            
-            self.notifyDelegates()
+
+            self.notifyObservers()
         }
     }
 
-    public func registerListener(observer: MigrationProgessObserver) {
-        observers.append(observer)
-    }
-
-    private func notifyDelegates() {
+    private func notifyObservers() {
         for observer in observers {
             observer.onProgressUpdated()
         }
