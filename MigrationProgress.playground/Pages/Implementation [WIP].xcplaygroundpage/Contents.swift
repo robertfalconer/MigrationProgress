@@ -7,8 +7,10 @@ import Foundation
 let migrationController = MigrationViewController()
 XCPlaygroundPage.currentPage.liveView = migrationController.view
 
+let awsEventObserver = AWSEventMigrationProgressObserver()
+
 let migrationSystem = MockMigrationSystem()
-let eventHandler = MigrationEventHandler(observers: [migrationController])
+let eventHandler = MigrationEventHandler(observers: [migrationController, awsEventObserver])
 
 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0)) {
     migrationSystem.processMigrations(eventHandler)
@@ -100,35 +102,4 @@ class MockMigrationSystem {
     }
 }
 
-class MigrationViewController: UIViewController, MigrationProgessObserver {
 
-    let versionLabel = UILabel(frame: CGRect(x: 100, y: 100, width: 600, height: 100))
-    let itemLabel = UILabel(frame: CGRect(x: 100, y: 300, width: 600, height: 100))
-    let countLabel = UILabel(frame: CGRect(x: 100, y: 500, width: 600, height: 100))
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        versionLabel.textColor = UIColor.whiteColor()
-        itemLabel.textColor = UIColor.whiteColor()
-        countLabel.textColor = UIColor.whiteColor()
-
-        view.addSubview(versionLabel)
-        view.addSubview(itemLabel)
-        view.addSubview(countLabel)
-    }
-
-    func onProgressUpdated() {
-
-        // The MigrationProgessListenerDelegate will responsible for updating itself
-        dispatch_async(dispatch_get_main_queue()) {
-            if let name = eventHandler.migrationData.mineCartItemName,
-                let previousVersion = eventHandler.migrationData.previousAppVersion,
-                let currentVersion = eventHandler.migrationData.currentAppVersion {
-                self.versionLabel.text = "Migrating from version \(previousVersion) to \(currentVersion)"
-                self.itemLabel.text = "Running migration \(name) (\(eventHandler.migrationData.currentMineCartItem) of \(eventHandler.migrationData.totalMineCartItems))"
-                self.countLabel.text = "Migrating records \(eventHandler.migrationData.completedMineCartItemRecords) to \(eventHandler.migrationData.totalMineCartItemRecords)"
-            }
-        }
-    }
-}

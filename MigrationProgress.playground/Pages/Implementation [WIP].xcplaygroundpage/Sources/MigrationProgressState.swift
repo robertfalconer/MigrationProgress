@@ -12,7 +12,7 @@ public struct MigrationItem {
     }
 }
 
-public struct MigrationEventData {
+public struct MigrationProgressState {
     public private(set) var previousAppVersion: String?
     public private(set) var currentAppVersion: String?
 

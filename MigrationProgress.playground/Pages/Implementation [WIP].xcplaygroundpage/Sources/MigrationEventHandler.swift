@@ -1,11 +1,11 @@
 import Foundation
 
 public class MigrationEventHandler {
-    public var migrationData = MigrationEventData()
+    public var migrationProgressState = MigrationProgressState()
 
-    private let observers: [MigrationProgessObserver]
+    private let observers: [MigrationProgressObserver]
 
-    public init(observers: [MigrationProgessObserver]) {
+    public init(observers: [MigrationProgressObserver]) {
         self.observers = observers
     }
 
@@ -22,29 +22,29 @@ public class MigrationEventHandler {
 
             switch event {
             case .ProcessingStarted(let previousVersion, let currentVersion, let itemCount):
-                self.migrationData.recordMigrationStart(fromVersion: previousVersion, toVersion: currentVersion, totalMineCartItems: itemCount)
+                self.migrationProgressState.recordMigrationStart(fromVersion: previousVersion, toVersion: currentVersion, totalMineCartItems: itemCount)
                 break
             case .ProcessingEnded():
-                self.migrationData.recordMigrationEnd()
+                self.migrationProgressState.recordMigrationEnd()
                 break
             case .ItemProcessingStarted(let item):
-                self.migrationData.recordMigrationItemStart(item)
+                self.migrationProgressState.recordMigrationItemStart(item)
                 break
             case .ItemProcessingEnded(let item):
-                self.migrationData.recordMigrationItemEnd(item)
+                self.migrationProgressState.recordMigrationItemEnd(item)
                 break
             case .RecordProcessed():
-                self.migrationData.recordMigrationItemRecordProcessed()
+                self.migrationProgressState.recordMigrationItemRecordProcessed()
                 break
             }
 
-            self.notifyObservers()
+            self.notifyObservers(event, progressState: self.migrationProgressState)
         }
     }
 
-    private func notifyObservers() {
+    private func notifyObservers(event: MigrationEvent, progressState: MigrationProgressState) {
         for observer in observers {
-            observer.onProgressUpdated()
+            observer.onProgressUpdated(event, progressState: progressState)
         }
     }
 
@@ -59,6 +59,6 @@ public class MigrationEventHandler {
     }
 }
 
-public protocol MigrationProgessObserver {
-    func onProgressUpdated()
+public protocol MigrationProgressObserver {
+    func onProgressUpdated(event: MigrationEvent, progressState: MigrationProgressState)
 }
