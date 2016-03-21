@@ -35,7 +35,8 @@ enum RegisterMigrationEventAttribute: String {
     case EndTime = "end_time"
     case ItemsToMigrate = "items_to_migrate"
     case ItemsMigrated = "items_migrated"
-    case ItemVersionNumber = "item_version_number"
+    case ItemRegisteredNumber = "item_registered_number"
+    case ItemName = "item_name"
     case RecordsToMigrate = "records_to_migrate"
     case RecordsMigrated = "records_migrated"
     case ClassName = "class_name"
@@ -113,10 +114,16 @@ public class AWSEventMigrationProgressObserver: MigrationProgressObserver {
     }
 
     private func processingEndedEvent(progressState: MigrationProgressState) {
-        //  TODO: determine success/failure
-        let eventType = eventTypeBuilder([.RegisterMigration, .Success])
+        let eventType: String
+        if progressState.completedMineCartItems == progressState.totalMineCartItems {
+            eventType = eventTypeBuilder([.RegisterMigration, .Success])
+        } else {
+            eventType = eventTypeBuilder([.RegisterMigration, .Fail])
+        }
+
         let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
             .EndTime: formatTime(progressState.mineCartEndTime),
+            .ItemsToMigrate: String(progressState.totalMineCartItems),
             .ItemsMigrated: String(progressState.completedMineCartItems)
         ]
 
@@ -128,20 +135,27 @@ public class AWSEventMigrationProgressObserver: MigrationProgressObserver {
         let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
             .StartTime: formatTime(progressState.mineCartItemStartTime),
             .RecordsToMigrate: String(progressState.totalMineCartItemRecords),
-            .ItemVersionNumber: String(progressState.mineCareItemRegisteredNumber!),
-            .ClassName: migrationItem.name
+            .ItemRegisteredNumber: String(progressState.mineCareItemRegisteredNumber!),
+            .ItemName: migrationItem.name
         ]
 
         sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
     }
 
     private func itemProcessingEndedEvent(migrationItem: MigrationItem, progressState: MigrationProgressState) {
-        let eventType = eventTypeBuilder([.RegisterMigration, .Item, .Success])
+        let eventType: String
+        if progressState.completedMineCartItems == progressState.totalMineCartItems {
+            eventType = eventTypeBuilder([.RegisterMigration, .Item, .Success])
+        } else {
+            eventType = eventTypeBuilder([.RegisterMigration, .Item, .Fail])
+        }
+
         let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
             .EndTime: formatTime(progressState.mineCartItemEndTime),
+            .RecordsToMigrate: String(progressState.totalMineCartItemRecords),
             .RecordsMigrated: String(progressState.completedMineCartItemRecords),
-            .ItemVersionNumber: String(progressState.mineCareItemRegisteredNumber!),
-            .ClassName: migrationItem.name
+            .ItemRegisteredNumber: String(progressState.mineCareItemRegisteredNumber!),
+            .ItemName: migrationItem.name
         ]
 
         sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
