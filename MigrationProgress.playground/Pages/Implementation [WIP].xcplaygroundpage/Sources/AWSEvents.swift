@@ -2,7 +2,7 @@ import Foundation
 
 class SKPAmazonMobileAnalytics {
     static func recordEventOfType(type: String, attributes: [String:String], metrics: [String:String]) {
-        type
+        print("Recording event of type: \(type);\n\tAttributes: \(attributes)\n\tMetrics: \(metrics)")
     }
 }
 
@@ -35,6 +35,7 @@ enum RegisterMigrationEventAttribute: String {
     case EndTime = "end_time"
     case ItemsToMigrate = "items_to_migrate"
     case ItemsMigrated = "items_migrated"
+    case ItemVersionNumber = "item_version_number"
     case RecordsToMigrate = "records_to_migrate"
     case RecordsMigrated = "records_migrated"
     case ClassName = "class_name"
@@ -50,7 +51,7 @@ func sendEventToAWS(eventType: String, progressState: MigrationProgressState, at
         combinedAttributes[attribute] = value
     }
 
-    SKPAmazonMobileAnalytics.recordEventOfType(eventType, attributes: finalizeAttributes(attributes), metrics: [:])
+    SKPAmazonMobileAnalytics.recordEventOfType(eventType, attributes: finalizeAttributes(combinedAttributes), metrics: [:])
 }
 
 func prepareCommonEventAttributes(progressState: MigrationProgressState) -> Dictionary<RegisterMigrationEventAttribute, String> {
@@ -61,10 +62,13 @@ func prepareCommonEventAttributes(progressState: MigrationProgressState) -> Dict
     //    iPad Model
     //    iOS Version
     //    Correlation ID
-    var attributes: Dictionary<RegisterMigrationEventAttribute, String> = [:]
-    attributes[.OriginalAppVersion] = progressState.previousAppVersion!
-    attributes[.NewAppVersion] = progressState.currentAppVersion!
-    //    attributes[.StoreName] =
+    let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
+        .OriginalAppVersion: progressState.previousAppVersion!,
+        .NewAppVersion: progressState.currentAppVersion!,
+        //    attributes[.StoreName] =
+
+        .CorrelationID: progressState.correlationId
+    ]
 
     return attributes
 }
@@ -80,8 +84,10 @@ func finalizeAttributes(attributes: Dictionary<RegisterMigrationEventAttribute, 
 }
 
 
-class AWSEventMigrationProgressObserver: MigrationProgressObserver {
-    func onProgressUpdated(event: MigrationEvent, progressState: MigrationProgressState) {
+public class AWSEventMigrationProgressObserver: MigrationProgressObserver {
+    public init() { }
+
+    public func onProgressUpdated(event: MigrationEvent, progressState: MigrationProgressState) {
         switch event {
         case .ProcessingStarted(_, _, _):
             processingStartedEvent(progressState)
@@ -96,33 +102,58 @@ class AWSEventMigrationProgressObserver: MigrationProgressObserver {
         }
     }
 
-    func processingStartedEvent(progressState: MigrationProgressState) {
+    private func processingStartedEvent(progressState: MigrationProgressState) {
         let eventType = eventTypeBuilder([.RegisterMigration, .Start])
-        let startTime: NSDate
-        if progressState.mineCartStartTime != nil {
-            startTime = progressState.mineCartStartTime!
-        } else {
-            startTime = NSDate()
-        }
+        let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
+            .StartTime: formatTime(progressState.mineCartStartTime),
+            .ItemsToMigrate: String(progressState.totalMineCartItems)
+        ]
 
-        let formatter = NSDateFormatter()
-        formatter.dateStyle = NSDateFormatterStyle.FullStyle
-        let startTimeString = formatter.stringFromDate(startTime)
-
-        let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [.StartTime: startTimeString]
         sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
     }
 
-    func processingEndedEvent(progressState: MigrationProgressState) {
+    private func processingEndedEvent(progressState: MigrationProgressState) {
+        //  TODO: determine success/failure
         let eventType = eventTypeBuilder([.RegisterMigration, .Success])
-        sendEventToAWS(eventType, progressState: progressState, attributes: [:])
+        let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
+            .EndTime: formatTime(progressState.mineCartEndTime),
+            .ItemsMigrated: String(progressState.completedMineCartItems)
+        ]
+
+        sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
     }
 
-    func itemProcessingStartedEvent(migrationItem: MigrationItem, progressState: MigrationProgressState) {
+    private func itemProcessingStartedEvent(migrationItem: MigrationItem, progressState: MigrationProgressState) {
+        let eventType = eventTypeBuilder([.RegisterMigration, .Item, .Start])
+        let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
+            .StartTime: formatTime(progressState.mineCartItemStartTime),
+            .RecordsToMigrate: String(progressState.totalMineCartItemRecords),
+            .ItemVersionNumber: String(progressState.mineCareItemRegisteredNumber!),
+            .ClassName: migrationItem.name
+        ]
 
+        sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
     }
 
-    func itemProcessingEndedEvent(migrationItem: MigrationItem, progressState: MigrationProgressState) {
+    private func itemProcessingEndedEvent(migrationItem: MigrationItem, progressState: MigrationProgressState) {
+        let eventType = eventTypeBuilder([.RegisterMigration, .Item, .Success])
+        let attributes: Dictionary<RegisterMigrationEventAttribute, String> = [
+            .EndTime: formatTime(progressState.mineCartItemEndTime),
+            .RecordsMigrated: String(progressState.completedMineCartItemRecords),
+            .ItemVersionNumber: String(progressState.mineCareItemRegisteredNumber!),
+            .ClassName: migrationItem.name
+        ]
 
+        sendEventToAWS(eventType, progressState: progressState, attributes: attributes)
+    }
+
+
+
+    //  MARK: helper methods
+    private func formatTime(maybeTime: NSDate?) -> String {
+        let time = (maybeTime != nil) ? maybeTime! : NSDate()
+        let formatter = NSDateFormatter()
+        formatter.dateStyle = NSDateFormatterStyle.FullStyle
+        return formatter.stringFromDate(time)
     }
 }

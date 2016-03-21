@@ -1,11 +1,13 @@
 import Foundation
 
 public struct MigrationItem {
+    let registeredNumber: UInt
     let name: String
     let description: String
     let recordCount: UInt
 
-    public init(name: String, description: String, recordCount: UInt) {
+    public init(_ registeredNumber: UInt, name: String, description: String, recordCount: UInt) {
+        self.registeredNumber = registeredNumber
         self.name = name
         self.recordCount = recordCount
         self.description = description
@@ -13,6 +15,8 @@ public struct MigrationItem {
 }
 
 public struct MigrationProgressState {
+    public let correlationId: String
+
     public private(set) var previousAppVersion: String?
     public private(set) var currentAppVersion: String?
 
@@ -20,6 +24,7 @@ public struct MigrationProgressState {
     public private(set) var mineCartEndTime: NSDate?
     public private(set) var mineCartItemStartTime: NSDate?
     public private(set) var mineCartItemEndTime: NSDate?
+    public private(set) var mineCareItemRegisteredNumber: UInt?
     public private(set) var mineCartItemName: String?
     public private(set) var mineCartItemDescription: String?
 
@@ -29,12 +34,17 @@ public struct MigrationProgressState {
     public private(set) var totalMineCartItemRecords: UInt = 0
     public private(set) var completedMineCartItemRecords: UInt = 0
 
+
     public var currentMineCartItem: UInt {
         if completedMineCartItems == totalMineCartItems {
             return completedMineCartItems
         }
 
         return completedMineCartItems + 1
+    }
+
+    public init(_ correlationID: String) {
+        self.correlationId = correlationID
     }
 
     public mutating func recordMigrationStart(fromVersion previousAppVersion: String, toVersion currentAppVersion: String, totalMineCartItems: UInt) {
@@ -66,6 +76,7 @@ public struct MigrationProgressState {
         totalMineCartItemRecords = migrationItem.recordCount
 
         // Description
+        mineCareItemRegisteredNumber = migrationItem.registeredNumber
         mineCartItemName = migrationItem.name
         mineCartItemDescription = migrationItem.description
     }

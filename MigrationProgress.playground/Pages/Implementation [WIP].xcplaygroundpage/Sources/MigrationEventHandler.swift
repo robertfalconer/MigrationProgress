@@ -1,7 +1,7 @@
 import Foundation
 
 public class MigrationEventHandler {
-    public var migrationProgressState = MigrationProgressState()
+    public var migrationProgressState = MigrationProgressState(NSUUID().UUIDString)
 
     private let observers: [MigrationProgressObserver]
 
